@@ -35,24 +35,43 @@ void onDataReceived(const uint8_t *, const uint8_t *, int);
 
 // 0 Gateway{1=G | 0=N} | 1 Standby{1=STNDBY|0=SCAN} |
 int nodeStatus[3] = {1, 0, 0};
+unsigned long time_now;
+int interval;
+
+void printStatus(){
+  Serial.print("STATUS : ");
+  Serial.print(nodeStatus[0]);
+  Serial.println(nodeStatus[1]);
+}
 
 void setup()
 {
   Serial.begin(115200);
   // put your setup code here, to run once:
-  if (nodeStatus[0] == 1)
-  {
-    connectWifi();
-  }
+  // if (nodeStatus[0] == 1)
+  // {
+  //   connectWifi();
+  // }
   BLE_SET();
   ESP_SET();
+  printStatus();
+  if (nodeStatus[0] == 1)
+    interval = 10000;
+  else
+    interval = 5000;
+  time_now = millis();
 }
 
 void loop()
 {
   // put your main code here, to run repeatedly:
-  if (nodeStatus[1] == 0)
-    BLE_SCAN();
+  if (millis() - time_now >= interval) // SCAN EVERY 10 Seconds;
+  {
+    time_now = millis();
+    printStatus();
+    if (nodeStatus[1] == 0)
+      BLE_SCAN();
+  }
 }
 
 // put function definitions here:
@@ -86,16 +105,16 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
       BLEData.printData(0);
       if (nodeStatus[0] == 0)
       {
-        // esp_now_send(spesificAddress, packingData(1, advertisedDevice.getRSSI()), 6);
-        // esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&myData, sizeof(myData));
         missingCount = 0;
-        packingData(1, advertisedDevice.getRSSI());
-        esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&myData, sizeof(myData));
-        if (result == ESP_OK)
-          Serial.println("DATA SENT");
-        else
-          Serial.println("DATA FAILED TO SENT");
       }
+      // esp_now_send(spesificAddress, packingData(1, advertisedDevice.getRSSI()), 6);
+      // esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&myData, sizeof(myData));
+      packingData(1, advertisedDevice.getRSSI());
+      esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&myData, sizeof(myData));
+      if (result == ESP_OK)
+        Serial.println("DATA SENT");
+      else
+        Serial.println("DATA FAILED TO SENT");
     }
     else
     {
@@ -126,6 +145,7 @@ void BLE_SET()
 
 void BLE_SCAN()
 {
+  Serial.println("Scanning...");
   BLEScanResults foundDevices = pBLEScan->start(scanTime, false);
   Serial.print("Devices found: ");
   Serial.println(foundDevices.getCount());
@@ -184,13 +204,19 @@ void onDataReceived(const uint8_t *macAddr, const uint8_t *incomingData, int dat
         packingData(2, 0);
         nodeStatus[1] = 0;
       }
+      esp_now_send(broadcastAddress, (uint8_t *)&myData, sizeof(myData));
     }
   }
   else if (myData.a[0] == 2)
+  {
     nodeStatus[1] = 0;
+    Serial.println("SCAN MODE");
+  }
   else if (myData.a[0] == 3)
+  {
     nodeStatus[1] = 1;
-  esp_now_send(broadcastAddress, (uint8_t *)&myData, sizeof(myData));
+    Serial.println("STANDBY MODE");
+  }
   return;
 }
 

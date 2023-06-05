@@ -77,6 +77,7 @@ public:
     }
 
     int findNearest(){
+        // if(this->data[0][1] == 0) return 0;
         int nearest[2] = {0, this->data[0][1]};
         for(int i=1;i<this->size;i++){
             if(this->data[i][1] < nearest[1]) {
