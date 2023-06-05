@@ -76,6 +76,17 @@ public:
         this->data[0][1] = mapFloatToInteger(distances);
     }
 
+    int findNearest(){
+        int nearest[2] = {0, this->data[0][1]};
+        for(int i=1;i<this->size;i++){
+            if(this->data[i][1] < nearest[1]) {
+                nearest[0] = i;
+                nearest[1] = this->data[i][1];
+            } 
+        }
+        return nearest[0];
+    }
+
     void printData(int indx)
     {
         Serial.println("\nDataBaseData");

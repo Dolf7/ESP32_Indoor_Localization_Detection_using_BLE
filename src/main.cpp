@@ -12,15 +12,17 @@ const char *password = "1sampe10";
 uint8_t broadcastAddress[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 uint8_t spesificAddress[] = {0x34, 0x94, 0x54, 0x24, 0x86, 0xC0};
 
+int scanTime = 3; // In seconds
+BLEScan *pBLEScan;
+int missingCount = 0;
+
 typedef struct struct_message
 {
-  uint8_t a[6]; // 1Packet Status | 4 Distances |
+  uint8_t a[6];
 } struct_message;
 struct_message myData;
 esp_now_peer_info_t peerInfo;
 
-// 0 Gateway{1=G | 0=N} | 1 Standby{1=STNDBY|0=SCAN} |
-int nodeStatus[3] = {1, 1, 0};
 // put function declarations here:
 void connectWifi();
 void BLE_SET();
@@ -30,6 +32,9 @@ float RSSItoDistance(int);
 // void espNowSent(uint8_t *, uint8_t *);
 void packingData(uint8_t, int);
 void onDataReceived(const uint8_t *, const uint8_t *, int);
+
+// 0 Gateway{1=G | 0=N} | 1 Standby{1=STNDBY|0=SCAN} |
+int nodeStatus[3] = {1, 0, 0};
 
 void setup()
 {
@@ -46,8 +51,8 @@ void setup()
 void loop()
 {
   // put your main code here, to run repeatedly:
-  // BLE_SCAN();
-  // delay(500);
+  if (nodeStatus[1] == 0)
+    BLE_SCAN();
 }
 
 // put function definitions here:
@@ -64,9 +69,6 @@ void connectWifi()
 }
 
 // FOR BLE SECTION
-int scanTime = 5; // In seconds
-int bleRSSI = 0;  //
-BLEScan *pBLEScan;
 
 class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
 {
@@ -81,11 +83,26 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
       // Serial.printf("RSSI : %d \n ", advertisedDevice.getRSSI());
       BLEData.dataProcessInputforThisNode(RSSItoDistance(advertisedDevice.getRSSI()));
       // Serial.println(BLEData.data[0][1]);
+      BLEData.printData(0);
       if (nodeStatus[0] == 0)
       {
         // esp_now_send(spesificAddress, packingData(1, advertisedDevice.getRSSI()), 6);
         // esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&myData, sizeof(myData));
+        missingCount = 0;
         packingData(1, advertisedDevice.getRSSI());
+        esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&myData, sizeof(myData));
+        if (result == ESP_OK)
+          Serial.println("DATA SENT");
+        else
+          Serial.println("DATA FAILED TO SENT");
+      }
+    }
+    else
+    {
+      missingCount++;
+      if (missingCount == 5)
+      {
+        packingData(3, 0);
         esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&myData, sizeof(myData));
         if (result == ESP_OK)
           Serial.println("DATA SENT");
@@ -146,11 +163,35 @@ void onDataReceived(const uint8_t *macAddr, const uint8_t *incomingData, int dat
   snprintf(macStr, sizeof(macStr), "%02x:%02x:%02x:%02x:%02x:%02x",
            macAddr[0], macAddr[1], macAddr[2], macAddr[3], macAddr[4], macAddr[5]);
   Serial.println(macStr);
-  memcpy(&myData, incomingData, sizeof(myData));
-  for(int i=0;i<3;i++){
-    Serial.print((int)myData.a[i]);
+  // memcpy(&myData, incomingData, sizeof(myData));
+  // for(int i=0;i<3;i++){
+  //   Serial.print((int)myData.a[i]);
+  // }
+  if (myData.a[0] == 1)
+  {
+    BLEData.dataProcessInput(macAddr, incomingData, 3);
+    if (nodeStatus[0] == 1)
+    {
+      int nearest = BLEData.findNearest();
+      if (nearest == 0)
+      {
+        Serial.println("TELL B TO STANBY");
+        packingData(3, 0);
+      }
+      else
+      {
+        Serial.println("LET B TO SCAN");
+        packingData(2, 0);
+        nodeStatus[1] = 0;
+      }
+    }
   }
-  BLEData.dataProcessInput(macAddr, incomingData, 3);
+  else if (myData.a[0] == 2)
+    nodeStatus[1] = 0;
+  else if (myData.a[0] == 3)
+    nodeStatus[1] = 1;
+  esp_now_send(broadcastAddress, (uint8_t *)&myData, sizeof(myData));
+  return;
 }
 
 void ESP_SET()
@@ -174,7 +215,7 @@ void ESP_SET()
     Serial.println("Failed to add peer");
     return;
   }
-  
+
   // esp_now_register_send_cb(OnDataSent);
   esp_now_register_recv_cb(onDataReceived);
 }
