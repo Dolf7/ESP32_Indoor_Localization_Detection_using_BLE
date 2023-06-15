@@ -76,25 +76,44 @@ public:
         this->data[0][1] = mapFloatToInteger(distances);
     }
 
-    int findNearest(){
+    int findNearest()
+    {
         // if(this->data[0][1] == 0) return 0;
         int nearest[2] = {0, this->data[0][1]};
-        for(int i=1;i<this->size;i++){
-            if(this->data[i][1] < nearest[1]) {
+        for (int i = 1; i < this->size; i++)
+        {
+            if (this->data[i][1] < nearest[1])
+            {
                 nearest[0] = i;
                 nearest[1] = this->data[i][1];
-            } 
+            }
         }
+        Serial.print("NEAREST : ");
+        Serial.println(mapIntegerToFloat((int)nearest[1]));
         return nearest[0];
     }
 
     void printData(int indx)
     {
-        Serial.println("\nDataBaseData");
+        Serial.print("\nDataBaseData Index - ");
+        Serial.println(indx);
         Serial.println(this->data[indx][0]);
         Serial.println(this->data[indx][1]);
         Serial.print("Distances: ");
         Serial.println(mapIntegerToFloat((int)this->data[indx][1]));
+    }
+    void printAllData()
+    {
+        for (int i = 0; i < this->size; i++)
+        {
+            Serial.print("\n--Data Index ");
+            Serial.print(i);
+            Serial.println("---");
+            Serial.println(this->data[i][0]);
+            Serial.println(this->data[i][1]);
+            Serial.print("Distances: ");
+            Serial.println(mapIntegerToFloat((int)this->data[i][1]));
+        }
     }
 };
 

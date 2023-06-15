@@ -38,7 +38,8 @@ int nodeStatus[3] = {1, 0, 0};
 unsigned long time_now;
 int interval;
 
-void printStatus(){
+void printStatus()
+{
   Serial.print("STATUS : ");
   Serial.print(nodeStatus[0]);
   Serial.println(nodeStatus[1]);
@@ -47,16 +48,16 @@ void printStatus(){
 void setup()
 {
   Serial.begin(115200);
-  // put your setup code here, to run once:
-  // if (nodeStatus[0] == 1)
-  // {
-  //   connectWifi();
-  // }
+  put your setup code here, to run once:
+  if (nodeStatus[0] == 1)
+  {
+    connectWifi();
+  }
   BLE_SET();
   ESP_SET();
   printStatus();
   if (nodeStatus[0] == 1)
-    interval = 10000;
+    interval = 7000;
   else
     interval = 5000;
   time_now = millis();
@@ -70,7 +71,10 @@ void loop()
     time_now = millis();
     printStatus();
     if (nodeStatus[1] == 0)
+    {
+      BLEData.printAllData();
       BLE_SCAN();
+    }
   }
 }
 
@@ -96,10 +100,10 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
     // Serial.printf("Advertised Device: %s \n", advertisedDevice.toString().c_str());
     // Serial.printf("Address : %s \n", advertisedDevice.getAddress().toString().c_str());
     String address = advertisedDevice.getAddress().toString().c_str();
-    if (address == "f0:a9:71:17:57:77")
+    if (address == "49:ba:d7:e5:ad:67")
     {
-      // Serial.printf("FOUND Address : %s \n", advertisedDevice.getAddress().toString().c_str());
-      // Serial.printf("RSSI : %d \n ", advertisedDevice.getRSSI());
+      Serial.printf("FOUND Address : %s \n", advertisedDevice.getAddress().toString().c_str());
+      Serial.printf("RSSI : %d \n ", advertisedDevice.getRSSI());
       BLEData.dataProcessInputforThisNode(RSSItoDistance(advertisedDevice.getRSSI()));
       // Serial.println(BLEData.data[0][1]);
       BLEData.printData(0);
@@ -147,8 +151,8 @@ void BLE_SCAN()
 {
   Serial.println("Scanning...");
   BLEScanResults foundDevices = pBLEScan->start(scanTime, false);
-  Serial.print("Devices found: ");
-  Serial.println(foundDevices.getCount());
+  // Serial.print("Devices found: ");
+  // Serial.println(foundDevices.getCount());
   Serial.println("Scan done!");
   pBLEScan->clearResults(); // delete results fromBLEScan buffer to release memory
 }
@@ -166,6 +170,10 @@ void packingData(uint8_t packetType, int RSSI)
 {
   myData.a[0] = packetType;
   myData.a[1] = mapFloatToInteger(RSSItoDistance(RSSI));
+  Serial.print("DATA TO SEND : ");
+  Serial.print(myData.a[0]);
+  Serial.print(" || ");
+  Serial.println(myData.a[1]);
 }
 
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status)
@@ -183,7 +191,7 @@ void onDataReceived(const uint8_t *macAddr, const uint8_t *incomingData, int dat
   snprintf(macStr, sizeof(macStr), "%02x:%02x:%02x:%02x:%02x:%02x",
            macAddr[0], macAddr[1], macAddr[2], macAddr[3], macAddr[4], macAddr[5]);
   Serial.println(macStr);
-  // memcpy(&myData, incomingData, sizeof(myData));
+  memcpy(&myData, incomingData, sizeof(myData));
   // for(int i=0;i<3;i++){
   //   Serial.print((int)myData.a[i]);
   // }
@@ -216,6 +224,10 @@ void onDataReceived(const uint8_t *macAddr, const uint8_t *incomingData, int dat
   {
     nodeStatus[1] = 1;
     Serial.println("STANDBY MODE");
+  }
+  else if (myData.a[0] == 5)
+  {
+    nodeStatus[1] = 0; 
   }
   return;
 }
